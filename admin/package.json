@@ -1,0 +1,1 @@
+{"dependencies":{"express":"^4.19.2","mysql2":"^3.10.1"},"description":"Biblioteca UNIR - servicio admin (gestion de libros, autores y prestamos). Codigo independiente del servicio usuario.","main":"app.js","name":"biblioteca-admin","scripts":{"start":"node app.js"},"version":"1.0.0"}
