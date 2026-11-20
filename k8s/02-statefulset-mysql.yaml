@@ -1,0 +1,90 @@
+# StatefulSet de MySQL: 1 replica. La base de datos es con estado
+# (identidad estable + almacenamiento persistente), por eso StatefulSet
+# y no Deployment. Usa el Secret db-secret y la imagen propia
+# luisraga12/biblioteca-mysql:1.0 (mysql:8.0 + init.sql con 5 libros,
+# 4 autores y 2 prestamos semilla).
+# Almacenamiento, SOLO para esta actividad: hostPath DIRECTO
+# /data/pruebas/mysql, SIN PV y SIN PVC (asi lo pidio Luis para esta
+# actividad). El volumen va en spec.template.spec.volumes, NO en
+# volumeClaimTemplates (eso es solo cuando se usa PVC).
+# Antes de aplicar, crear el directorio en el nodo:
+#   minikube:  minikube ssh "sudo mkdir -p /data/pruebas/mysql"
+#   k3s/EC2:   sudo mkdir -p /data/pruebas/mysql
+# En minikube el hostPath vive dentro de la VM de minikube (no en el PC);
+# en k3s, en el disco de la EC2. La BD debe quedarse en 1 replica: con
+# mas replicas compartirian el mismo directorio. No apto para multinodo
+# ni para produccion.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: pruebas
+  labels:
+    app: biblioteca
+    modulo: mysql
+spec:
+  serviceName: mysql-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: biblioteca
+      modulo: mysql
+  template:
+    metadata:
+      labels:
+        app: biblioteca
+        modulo: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: luisraga12/biblioteca-mysql:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MYSQL_PASSWORD
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$(MYSQL_ROOT_PASSWORD)"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$(MYSQL_ROOT_PASSWORD)"]
+            initialDelaySeconds: 15
+            periodSeconds: 5
+      volumes:
+        - name: mysql-data
+          hostPath:
+            path: /data/pruebas/mysql
+            type: DirectoryOrCreate

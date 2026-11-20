@@ -1,0 +1,84 @@
+# Los 4 Services de la actividad, en un solo archivo.
+# - mysql-headless: Service headless (sin ClusterIP) para el StatefulSet.
+#   Es obligatorio para un StatefulSet: da a cada Pod una identidad DNS
+#   estable (mysql-0.mysql-headless.pruebas.svc.cluster.local).
+# - mysql-svc: Service interno de MySQL. Las apps lo usan como
+#   DB_HOST=mysql-svc. Solo accesible dentro del cluster (ClusterIP):
+#   nunca se expone a internet.
+# - usuario-svc: expone el servicio usuario desde fuera del cluster.
+#   http://<IP_DEL_NODO>:30080
+# - admin-svc: expone el servicio admin desde fuera del cluster.
+#   http://<IP_DEL_NODO>:30081
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-headless
+  namespace: pruebas
+  labels:
+    app: biblioteca
+    modulo: mysql
+spec:
+  clusterIP: None
+  selector:
+    app: biblioteca
+    modulo: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-svc
+  namespace: pruebas
+  labels:
+    app: biblioteca
+    modulo: mysql
+spec:
+  type: ClusterIP
+  selector:
+    app: biblioteca
+    modulo: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: usuario-svc
+  namespace: pruebas
+  labels:
+    app: biblioteca
+    modulo: usuario
+spec:
+  type: NodePort
+  selector:
+    app: biblioteca
+    modulo: usuario
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      nodePort: 30080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-svc
+  namespace: pruebas
+  labels:
+    app: biblioteca
+    modulo: admin
+spec:
+  type: NodePort
+  selector:
+    app: biblioteca
+    modulo: admin
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      nodePort: 30081
